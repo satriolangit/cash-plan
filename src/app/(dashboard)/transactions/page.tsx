@@ -86,7 +86,7 @@ export default function TransactionsPage() {
         </div>
 
         <Popover>
-          <PopoverTrigger>
+          <PopoverTrigger asChild>
             <div className="relative">
               <Button
                 variant="outline"

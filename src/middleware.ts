@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
 
 const publicRoutes = [
   "/landing",
@@ -11,8 +10,13 @@ const publicRoutes = [
   "/reset-password",
 ];
 
-export async function middleware(request: NextRequest) {
-  const session = await auth();
+const SESSION_COOKIES = [
+  "__Secure-next-auth.session-token",
+  "next-auth.session-token",
+];
+
+export function middleware(request: NextRequest) {
+  const session = SESSION_COOKIES.some((name) => request.cookies.has(name));
   const { pathname } = request.nextUrl;
 
   const isPublicRoute = publicRoutes.some(
