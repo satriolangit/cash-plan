@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MoneyInput } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/auth-context";
 
@@ -17,6 +18,21 @@ interface Category {
   icon: string;
   color: string;
   type: string;
+}
+
+interface ExistingAttachment {
+  id: string;
+  fileName: string;
+  filePath: string;
+  mimeType: string;
+}
+
+interface NewAttachment {
+  file: File;
+  preview: string;
+  uploading: boolean;
+  uploaded: boolean;
+  filePath?: string;
 }
 
 export default function EditTransactionPage({
@@ -32,10 +48,13 @@ export default function EditTransactionPage({
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
+  const [newAttachments, setNewAttachments] = useState<NewAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     type: "expense" as "income" | "expense",
-    amount: "",
+    amount: 0,
     categoryId: "",
     description: "",
     transactionDate: "",
@@ -56,11 +75,14 @@ export default function EditTransactionPage({
       const tx = data.data;
       setForm({
         type: tx.type,
-        amount: String(tx.amount),
+        amount: tx.amount,
         categoryId: tx.categoryId,
         description: tx.description || "",
         transactionDate: tx.transactionDate.split("T")[0],
       });
+      if (tx.attachments) {
+        setExistingAttachments(tx.attachments);
+      }
     } else {
       setError("Transaction not found");
     }
@@ -73,18 +95,90 @@ export default function EditTransactionPage({
     if (data.success) setCategories(data.data);
   }
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+
+    const attachments: NewAttachment[] = Array.from(files).map((file) => ({
+      file,
+      preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+      uploading: false,
+      uploaded: false,
+    }));
+
+    setNewAttachments((prev) => [...prev, ...attachments]);
+  }
+
+  function removeNewAttachment(index: number) {
+    setNewAttachments((prev) => {
+      const newAttachments = [...prev];
+      if (newAttachments[index].preview) {
+        URL.revokeObjectURL(newAttachments[index].preview);
+      }
+      newAttachments.splice(index, 1);
+      return newAttachments;
+    });
+  }
+
+  async function uploadFile(file: File): Promise<string | null> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("transactionId", id);
+
+    try {
+      const res = await apiFetch("/api/v1/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        return data.data.filePath;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
+      // Upload new attachments
+      for (let i = 0; i < newAttachments.length; i++) {
+        if (!newAttachments[i].uploaded) {
+          setNewAttachments((prev) => {
+            const newAttachments = [...prev];
+            newAttachments[i] = { ...newAttachments[i], uploading: true };
+            return newAttachments;
+          });
+
+          const path = await uploadFile(newAttachments[i].file);
+          if (path) {
+            setNewAttachments((prev) => {
+              const newAttachments = [...prev];
+              newAttachments[i] = {
+                ...newAttachments[i],
+                uploading: false,
+                uploaded: true,
+                filePath: path,
+              };
+              return newAttachments;
+            });
+          }
+        }
+      }
+
+      // Update transaction
       const res = await apiFetch(`/api/v1/transactions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          amount: Number(form.amount),
+          amount: form.amount,
         }),
       });
 
@@ -181,11 +275,9 @@ export default function EditTransactionPage({
 
             <div>
               <Label>Amount</Label>
-              <Input
-                type="number"
+              <MoneyInput
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                min="1"
+                onChange={(value) => setForm({ ...form, amount: value })}
                 required
               />
             </div>
@@ -223,6 +315,112 @@ export default function EditTransactionPage({
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
+            </div>
+
+            {/* Existing Attachments */}
+            {existingAttachments.length > 0 && (
+              <div>
+                <Label>Current Attachments</Label>
+                <div className="mt-2 space-y-2">
+                  {existingAttachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="flex items-center gap-3 p-2 bg-muted rounded-lg"
+                    >
+                      {att.mimeType.startsWith("image/") ? (
+                        <img
+                          src={att.filePath}
+                          alt={att.fileName}
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-white rounded flex items-center justify-center">
+                          📄
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{att.fileName}</p>
+                      </div>
+                      <a
+                        href={att.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary text-sm"
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* New Attachments */}
+            <div>
+              <Label>Add More Attachments</Label>
+              <div className="mt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,.pdf"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  📎 Choose Files
+                </Button>
+                <p className="text-xs text-muted mt-1">
+                  Max 10MB per file. JPEG, PNG, GIF, WebP, PDF
+                </p>
+              </div>
+
+              {newAttachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {newAttachments.map((att, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-2 bg-muted rounded-lg"
+                    >
+                      {att.preview ? (
+                        <img
+                          src={att.preview}
+                          alt="Preview"
+                          className="w-12 h-12 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-white rounded flex items-center justify-center">
+                          📄
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate">{att.file.name}</p>
+                        <p className="text-xs text-muted">
+                          {(att.file.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                      {att.uploading && (
+                        <span className="text-xs text-muted">Uploading...</span>
+                      )}
+                      {att.uploaded && (
+                        <span className="text-xs text-success">✓</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeNewAttachment(index)}
+                        className="text-muted hover:text-foreground"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {error && <p className="text-sm text-danger">{error}</p>}

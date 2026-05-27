@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Users, Settings, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/auth-context";
 
 interface Household {
@@ -20,6 +21,7 @@ export default function HouseholdPage() {
   const [loading, setLoading] = useState(true);
   const [inviteUrl, setInviteUrl] = useState("");
   const [generating, setGenerating] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchHousehold();
@@ -44,7 +46,7 @@ export default function HouseholdPage() {
 
   function copyInvite() {
     navigator.clipboard.writeText(inviteUrl);
-    alert("Link copied!");
+    toast("success", "Link copied!");
   }
 
   if (loading) {
@@ -86,7 +88,7 @@ export default function HouseholdPage() {
                   className="flex-1"
                   onClick={() =>
                     window.open(
-                      `https://wa.me/?text=Gabung ke Family Wallet keluarga kami 👋%0A${encodeURIComponent(inviteUrl)}`,
+                      `https://wa.me/?text=Gabung ke Cash Plan keluarga kami 👋%0A${encodeURIComponent(inviteUrl)}`,
                       "_blank"
                     )
                   }

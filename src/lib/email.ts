@@ -17,7 +17,7 @@ export async function sendPasswordResetEmail(
 
   // TODO: Implement with Resend, Nodemailer, or SES
   // const { data, error } = await resend.emails.send({
-  //   from: "Family Wallet <noreply@your-domain.com>",
+  //   from: "Cash Plan <noreply@your-domain.com>",
   //   to: [email],
   //   subject: "Reset Your Password",
   //   html: `<p>Click the link below to reset your password:</p><a href="${resetUrl}">${resetUrl}</a>`,

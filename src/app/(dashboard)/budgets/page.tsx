@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectItem } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MoneyInput } from "@/components/ui/money-input";
+import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import { apiFetch } from "@/lib/auth-context";
 
@@ -49,15 +52,18 @@ export default function BudgetsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const { toast } = useToast();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
   const [form, setForm] = useState({
     categoryId: "",
-    amount: "",
+    amount: 0,
   });
 
   useEffect(() => {
@@ -85,12 +91,17 @@ export default function BudgetsPage() {
     setError("");
 
     try {
-      const res = await apiFetch("/api/v1/budgets", {
-        method: "POST",
+      const method = editingId ? "PATCH" : "POST";
+      const url = editingId
+        ? `/api/v1/budgets/${editingId}`
+        : "/api/v1/budgets";
+
+      const res = await apiFetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           categoryId: form.categoryId,
-          amount: Number(form.amount),
+          amount: form.amount,
           month,
           year,
         }),
@@ -99,16 +110,55 @@ export default function BudgetsPage() {
       const data = await res.json();
       if (data.success) {
         setShowForm(false);
-        setForm({ categoryId: "", amount: "" });
+        setEditingId(null);
+        setForm({ categoryId: "", amount: 0 });
+        toast("success", editingId ? "Budget updated" : "Budget created");
         fetchBudgets();
       } else {
-        setError(data.error?.message || "Failed to create budget");
+        setError(data.error?.message || "Failed to save budget");
       }
     } catch {
       setError("Network error");
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleEdit(budget: BudgetItem) {
+    setEditingId(budget.id);
+    setForm({
+      categoryId: budget.category.id,
+      amount: budget.amount,
+    });
+    setShowForm(true);
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+
+    try {
+      const res = await apiFetch(`/api/v1/budgets/${deleteTarget}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast("success", "Budget deleted");
+        fetchBudgets();
+      } else {
+        toast("error", data.error?.message || "Failed to delete budget");
+      }
+    } catch {
+      toast("error", "Network error");
+    } finally {
+      setDeleteTarget(null);
+    }
+  }
+
+  function handleCancel() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ categoryId: "", amount: 0 });
+    setError("");
   }
 
   const months = [
@@ -120,75 +170,84 @@ export default function BudgetsPage() {
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Monthly Budgets</h1>
-        <Button
-          size="sm"
-          onClick={() => {
-            setShowForm(!showForm);
-            setForm({ categoryId: "", amount: "" });
-          }}
-        >
-          {showForm ? "Cancel" : "+ Add"}
-        </Button>
+        {!showForm && (
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingId(null);
+              setForm({ categoryId: "", amount: 0 });
+              setShowForm(true);
+            }}
+          >
+            + Add
+          </Button>
+        )}
       </div>
 
       {/* Month/Year Filter */}
       <div className="flex gap-2">
-        <select
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="h-10 rounded-xl border border-border bg-white px-3 text-sm"
+        <Select
+          value={String(month)}
+          onValueChange={(v) => setMonth(Number(v))}
         >
           {months.map((m, i) => (
-            <option key={i} value={i + 1}>{m}</option>
+            <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
           ))}
-        </select>
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="h-10 rounded-xl border border-border bg-white px-3 text-sm"
+        </Select>
+        <Select
+          value={String(year)}
+          onValueChange={(v) => setYear(Number(v))}
         >
           {[2026, 2025].map((y) => (
-            <option key={y} value={y}>{y}</option>
+            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
 
-      {/* Add Budget Form */}
+      {/* Add/Edit Budget Form */}
       {showForm && (
         <Card>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <Label>Category</Label>
-                <select
+                <Select
                   value={form.categoryId}
-                  onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                  className="flex h-10 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm"
-                  required
+                  onValueChange={(v) => setForm({ ...form, categoryId: v })}
+                  placeholder="Select category"
+                  disabled={!!editingId}
                 >
-                  <option value="">Select category</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
+                    <SelectItem key={cat.id} value={cat.id}>
                       {cat.icon} {cat.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <Label>Budget Amount</Label>
-                <Input
-                  type="number"
+                <MoneyInput
                   placeholder="0"
                   value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  min="1"
+                  onChange={(value) => setForm({ ...form, amount: value })}
                   required
                 />
               </div>
               {error && <p className="text-sm text-danger">{error}</p>}
-              <Button type="submit" className="w-full" disabled={saving}>
-                {saving ? "Creating..." : "Create Budget"}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={handleCancel}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" disabled={saving}>
+                  {saving
+                    ? editingId
+                      ? "Updating..."
+                      : "Creating..."
+                    : editingId
+                    ? "Update Budget"
+                    : "Create Budget"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -236,17 +295,19 @@ export default function BudgetsPage() {
                       </p>
                     </div>
                   </div>
-                  <span
-                    className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      budget.status === "safe"
-                        ? "bg-success/10 text-success"
-                        : budget.status === "warning"
-                        ? "bg-warning/10 text-warning"
-                        : "bg-danger/10 text-danger"
-                    }`}
-                  >
-                    {statusText[budget.status]}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        budget.status === "safe"
+                          ? "bg-success/10 text-success"
+                          : budget.status === "warning"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {statusText[budget.status]}
+                    </span>
+                  </div>
                 </div>
                 <div className="w-full bg-border rounded-full h-2">
                   <div
@@ -254,12 +315,41 @@ export default function BudgetsPage() {
                     style={{ width: `${Math.min(budget.percentage, 100)}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted mt-1 text-right">{budget.percentage}%</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-muted">{budget.percentage}%</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(budget)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(budget.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Delete Budget"
+        description="Are you sure you want to delete this budget? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

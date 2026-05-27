@@ -202,3 +202,99 @@ export interface CreateBudgetInput {
 export interface UpdateBudgetInput {
   amount?: number;
 }
+
+// ─── Recurring Transaction Types ─────────────────────────────────────────────
+
+export interface RecurringTransaction {
+  id: string;
+  householdId: string;
+  userId: string;
+  categoryId: string;
+  type: "income" | "expense";
+  amount: number;
+  description: string | null;
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  startDate: string;
+  endDate: string | null;
+  isActive: boolean;
+  lastRun: string | null;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export interface RecurringTransactionWithRelations extends RecurringTransaction {
+  category: {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+  };
+  user: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateRecurringTransactionInput {
+  categoryId: string;
+  type: "income" | "expense";
+  amount: number;
+  description?: string;
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
+  dayOfMonth?: number;
+  dayOfWeek?: number;
+  startDate: string;
+  endDate?: string;
+}
+
+export interface UpdateRecurringTransactionInput {
+  categoryId?: string;
+  type?: "income" | "expense";
+  amount?: number;
+  description?: string;
+  frequency?: "daily" | "weekly" | "monthly" | "yearly";
+  dayOfMonth?: number;
+  dayOfWeek?: number;
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+}
+
+// ─── Savings Target Types ────────────────────────────────────────────────────
+
+export interface SavingsTarget {
+  id: string;
+  householdId: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: string | null;
+  icon: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface CreateSavingsTargetInput {
+  name: string;
+  targetAmount: number;
+  deadline?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface UpdateSavingsTargetInput {
+  name?: string;
+  targetAmount?: number;
+  currentAmount?: number;
+  deadline?: string;
+  icon?: string;
+  color?: string;
+}
+
+export interface DepositSavingsInput {
+  amount: number;
+}

@@ -6,9 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
-import { formatCurrency } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { formatCurrency, formatMonthYear, getCurrentMonthYear } from "@/lib/utils";
 import { apiFetch } from "@/lib/auth-context";
 import { ArrowRight } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
 interface DashboardData {
   balance: number;
@@ -37,9 +45,11 @@ interface DashboardData {
 }
 
 function DashboardContent() {
+  const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { month, year } = getCurrentMonthYear();
 
   useEffect(() => {
     fetchDashboard();
@@ -78,12 +88,14 @@ function DashboardContent() {
 
   if (!data) return null;
 
+  const firstName = user?.name?.split(" ")[0] || "there";
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Hi, Budi 👋</h1>
-        <p className="text-sm text-muted">Mei 2026</p>
+        <h1 className="text-2xl font-bold">Hi, {firstName} 👋</h1>
+        <p className="text-sm text-muted">{formatMonthYear(month, year)}</p>
       </div>
 
       {/* Balance Card */}
@@ -123,11 +135,69 @@ function DashboardContent() {
         <Card className="border-warning/50 bg-warning/5">
           <CardContent>
             <p className="text-sm font-medium text-warning">⚠ Budget Alert</p>
-            <div className="mt-1 space-y-1">
-              {data.budgetAlerts.map((alert) => (
-                <p key={alert.categoryId} className="text-sm text-muted">
-                  {alert.categoryName} {alert.percentage}%
-                </p>
+            <div className="mt-2 space-y-2">
+              {data.budgetAlerts.map((alert) => {
+                const color = alert.percentage >= 100 ? "bg-danger" : "bg-warning";
+                return (
+                  <div key={alert.categoryId}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted">{alert.categoryName}</span>
+                      <span className="text-muted">{alert.percentage}%</span>
+                    </div>
+                    <div className="w-full bg-border rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full ${color}`}
+                        style={{ width: `${Math.min(alert.percentage, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Expense Breakdown Chart */}
+      {data.expenseChart.length > 0 && (
+        <Card>
+          <CardContent>
+            <p className="text-sm font-medium mb-3">Expense Breakdown</p>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.expenseChart}
+                    dataKey="amount"
+                    nameKey="categoryName"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={2}
+                  >
+                    {data.expenseChart.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-2 space-y-1">
+              {data.expenseChart.map((item) => (
+                <div key={item.categoryName} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-muted">{item.categoryName}</span>
+                  </div>
+                  <span className="font-medium">{formatCurrency(item.amount)}</span>
+                </div>
               ))}
             </div>
           </CardContent>

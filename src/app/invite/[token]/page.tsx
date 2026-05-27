@@ -68,7 +68,7 @@ export default function InvitePage({
           <span className="text-white font-bold text-xl">FW</span>
         </div>
         <h1 className="text-2xl font-bold text-foreground">Join Household</h1>
-        <p className="text-sm text-muted mt-1">to continue to Family Wallet</p>
+        <p className="text-sm text-muted mt-1">to continue to Cash Plan</p>
 
         {/* Household Info */}
         <div className="my-8 bg-muted/50 rounded-xl p-4">

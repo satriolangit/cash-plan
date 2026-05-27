@@ -4,7 +4,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Family Wallet",
+  title: "Cash Plan",
   description: "Simple family finance management",
 };
 

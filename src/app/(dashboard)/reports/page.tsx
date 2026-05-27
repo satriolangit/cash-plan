@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectItem } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
@@ -98,7 +99,7 @@ export default function ReportsPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-              tab === t ? "bg-white shadow-sm" : "text-muted"
+              tab === t ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
             }`}
           >
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -108,24 +109,22 @@ export default function ReportsPage() {
 
       {/* Filters */}
       <div className="flex gap-2">
-        <select
-          value={month}
-          onChange={(e) => setMonth(Number(e.target.value))}
-          className="h-10 rounded-xl border border-border bg-white px-3 text-sm"
+        <Select
+          value={String(month)}
+          onValueChange={(v) => setMonth(Number(v))}
         >
           {months.map((m, i) => (
-            <option key={i} value={i + 1}>{m}</option>
+            <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
           ))}
-        </select>
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className="h-10 rounded-xl border border-border bg-white px-3 text-sm"
+        </Select>
+        <Select
+          value={String(year)}
+          onValueChange={(v) => setYear(Number(v))}
         >
           {[2026, 2025].map((y) => (
-            <option key={y} value={y}>{y}</option>
+            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
           ))}
-        </select>
+        </Select>
       </div>
 
       {loading ? (

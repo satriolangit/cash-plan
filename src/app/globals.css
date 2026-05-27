@@ -47,6 +47,18 @@
   --radius-2xl: 1.5rem;
 }
 
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #0F172A;
+    --color-card: #1E293B;
+    --color-foreground: #F1F5F9;
+    --color-muted: #94A3B8;
+    --color-muted-foreground: #64748B;
+    --color-border: #334155;
+  }
+}
+
 /* Base styles */
 body {
   background-color: var(--color-background);
@@ -54,4 +66,11 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Card dark mode override */
+@media (prefers-color-scheme: dark) {
+  .bg-white {
+    background-color: var(--color-card);
+  }
 }

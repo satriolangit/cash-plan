@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ export default function SignInPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +39,7 @@ export default function SignInPage() {
             <span className="text-white font-bold text-xl">FW</span>
           </div>
           <h1 className="text-2xl font-bold">Sign in</h1>
-          <p className="text-sm text-muted mt-1 mb-8">to continue to Family Wallet</p>
+          <p className="text-sm text-muted mt-1 mb-8">to continue to Cash Plan</p>
 
           <div className="space-y-3">
             {/* Email/Password */}
@@ -115,13 +117,22 @@ export default function SignInPage() {
                 Forgot password?
               </Link>
             </div>
-            <Input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              placeholder="Enter your password"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Enter your password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}

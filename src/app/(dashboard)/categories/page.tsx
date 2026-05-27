@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiFetch } from "@/lib/auth-context";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Category {
   id: string;
@@ -21,6 +22,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -69,8 +71,8 @@ export default function CategoriesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this category?")) return;
     await apiFetch(`/api/v1/categories/${id}`, { method: "DELETE" });
+    setDeleteTarget(null);
     fetchCategories();
   }
 
@@ -175,7 +177,7 @@ export default function CategoriesPage() {
                           Edit
                         </Button>
                         {!cat.isDefault && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(cat.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(cat.id)}>
                             Delete
                           </Button>
                         )}
@@ -204,7 +206,7 @@ export default function CategoriesPage() {
                           Edit
                         </Button>
                         {!cat.isDefault && (
-                          <Button variant="ghost" size="sm" onClick={() => handleDelete(cat.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(cat.id)}>
                             Delete
                           </Button>
                         )}
@@ -217,6 +219,17 @@ export default function CategoriesPage() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget);
+        }}
+        title="Delete Category"
+        description="Are you sure you want to delete this category? This action cannot be undone."
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

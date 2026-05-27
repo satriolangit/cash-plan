@@ -18,8 +18,11 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
+const fabPages = ["/dashboard", "/transactions"];
+
 export function BottomNav() {
   const pathname = usePathname();
+  const showFAB = fabPages.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 md:hidden">
@@ -42,13 +45,15 @@ export function BottomNav() {
         })}
       </div>
 
-      {/* Floating Action Button */}
-      <Link
-        href="/transactions/new"
-        className="absolute -top-6 left-1/2 -translate-x-1/2 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary-dark transition-colors"
-      >
-        <Plus className="w-6 h-6 text-white" />
-      </Link>
+      {/* Floating Action Button — bottom-right, 16px above bottom nav */}
+      {showFAB && (
+        <Link
+          href="/transactions/new"
+          className="absolute bottom-20 right-4 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:bg-primary-dark transition-colors"
+        >
+          <Plus className="w-6 h-6 text-white" />
+        </Link>
+      )}
     </nav>
   );
 }
