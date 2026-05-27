@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USER ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  avatarUrl    String?  @map("avatar_url")
+  role         String   @default("member") // owner | member
+  householdId  String   @map("household_id")
+  passwordHash String?  @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  household           Household             @relation(fields: [householdId], references: [id])
+  accounts            Account[]
+  transactions        Transaction[]
+  invites             HouseholdInvite[]     @relation("InviteCreator")
+  passwordResetTokens PasswordResetToken[]
+  refreshTokens       RefreshToken[]
+
+  @@index([householdId])
+  @@map("users")
+}
+
+// ─── HOUSEHOLD ────────────────────────────────────────────────────────────────
+
+model Household {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users      User[]
+  categories Category[]
+  transactions Transaction[]
+  budgets    Budget[]
+  invites    HouseholdInvite[]
+
+  @@map("households")
+}
+
+// ─── CATEGORY ─────────────────────────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(uuid())
+  householdId String   @map("household_id")
+  name        String
+  icon        String
+  color       String
+  type        String   // income | expense | both
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  household    Household     @relation(fields: [householdId], references: [id])
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@index([householdId, deletedAt])
+  @@unique([householdId, name])
+  @@map("categories")
+}
+
+// ─── TRANSACTION ──────────────────────────────────────────────────────────────
+
+model Transaction {
+  id              String   @id @default(uuid())
+  householdId     String   @map("household_id")
+  userId          String   @map("user_id")
+  categoryId      String   @map("category_id")
+  type            String   // income | expense
+  amount          Decimal  @db.Decimal(15, 2)
+  description     String?
+  transactionDate DateTime @map("transaction_date")
+  createdAt       DateTime @default(now()) @map("created_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  household Household @relation(fields: [householdId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  category  Category  @relation(fields: [categoryId], references: [id])
+
+  @@index([householdId, deletedAt])
+  @@index([householdId, transactionDate])
+  @@index([categoryId, deletedAt])
+  @@map("transactions")
+}
+
+// ─── BUDGET ───────────────────────────────────────────────────────────────────
+
+model Budget {
+  id          String   @id @default(uuid())
+  householdId String   @map("household_id")
+  categoryId  String   @map("category_id")
+  amount      Decimal  @db.Decimal(15, 2)
+  month       Int
+  year        Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  household Household @relation(fields: [householdId], references: [id])
+  category  Category  @relation(fields: [categoryId], references: [id])
+
+  @@unique([householdId, categoryId, month, year])
+  @@index([householdId, deletedAt])
+  @@map("budgets")
+}
+
+// ─── HOUSEHOLD INVITE ─────────────────────────────────────────────────────────
+
+model HouseholdInvite {
+  id          String   @id @default(uuid())
+  householdId String   @map("household_id")
+  token       String   @unique
+  expiresAt   DateTime @map("expires_at")
+  isRevoked   Boolean  @default(false) @map("is_revoked")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id])
+  creator   User      @relation("InviteCreator", fields: [createdBy], references: [id])
+
+  @@index([householdId])
+  @@map("household_invites")
+}
+
+// ─── ACCOUNT (Auth.js) ───────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+// ─── PASSWORD RESET TOKEN ─────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}

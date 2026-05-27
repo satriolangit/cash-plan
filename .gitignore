@@ -1,0 +1,15 @@
+.env
+.env.local
+.env.*.local
+
+node_modules/
+.next/
+out/
+.agents/
+
+
+prisma/migrations/
+prisma/*.db
+
+*.tsbuildinfo
+next-env.d.ts

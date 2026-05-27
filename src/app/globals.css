@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand Colors - Teal */
+  --color-primary: #14B8A6;
+  --color-primary-foreground: #FFFFFF;
+  --color-primary-light: #5EEAD4;
+  --color-primary-dark: #0D9488;
+
+  /* Background */
+  --color-background: #F8FAFC;
+  --color-card: #FFFFFF;
+
+  /* Secondary */
+  --color-secondary: #0F172A;
+
+  /* Accent */
+  --color-accent: #F59E0B;
+  --color-accent-foreground: #000000;
+
+  /* Semantic Colors */
+  --color-success: #22C55E;
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+
+  /* Text */
+  --color-foreground: #0F172A;
+  --color-muted: #64748B;
+  --color-muted-foreground: #94A3B8;
+
+  /* Border */
+  --color-border: #E2E8F0;
+
+  /* Budget Status */
+  --color-budget-safe: #22C55E;
+  --color-budget-warning: #F59E0B;
+  --color-budget-over: #EF4444;
+
+  /* Font */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* Base styles */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
