@@ -4,18 +4,21 @@ import { cn } from "@/lib/utils";
 import {
   type ReactNode,
   type RefObject,
+  type ReactElement,
   useRef,
   useEffect,
   useState,
   createContext,
   useContext,
   useCallback,
+  isValidElement,
+  cloneElement,
 } from "react";
 
 interface PopoverContextType {
   open: boolean;
   setOpen: (open: boolean) => void;
-  triggerRef: RefObject<HTMLButtonElement | null>;
+  triggerRef: RefObject<HTMLElement | null>;
 }
 
 const PopoverContext = createContext<PopoverContextType>({
@@ -45,7 +48,7 @@ function Popover({ children, open: controlledOpen, onOpenChange, defaultOpen = f
     },
     [onOpenChange]
   );
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
 
   return (
     <PopoverContext.Provider value={{ open, setOpen, triggerRef }}>
@@ -62,25 +65,32 @@ interface PopoverTriggerProps {
 function PopoverTrigger({ children, asChild }: PopoverTriggerProps) {
   const { setOpen, open, triggerRef } = usePopover();
 
-  if (asChild) {
-    return (
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="contents"
-      >
-        {children}
-      </button>
-    );
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<{ onClick?: React.MouseEventHandler; ref?: unknown }>;
+    return cloneElement(child, {
+      ref: (node: HTMLElement | null) => {
+        if (node) {
+          triggerRef.current = node;
+          const origRef = (child as unknown as { ref?: unknown }).ref;
+          if (typeof origRef === "function") {
+            (origRef as (node: HTMLElement | null) => void)(node);
+          } else if (origRef && typeof origRef === "object" && "current" in origRef) {
+            (origRef as { current: HTMLElement | null }).current = node;
+          }
+        }
+      },
+      onClick: (e: React.MouseEvent) => {
+        const origOnClick = child.props?.onClick;
+        if (origOnClick) origOnClick(e);
+        if (!e.defaultPrevented) {
+          setOpen(!open);
+        }
+      },
+    });
   }
 
   return (
-    <button
-      ref={triggerRef}
-      type="button"
-      onClick={() => setOpen(!open)}
-    >
+    <button ref={triggerRef as RefObject<HTMLButtonElement>} type="button" onClick={() => setOpen(!open)}>
       {children}
     </button>
   );
