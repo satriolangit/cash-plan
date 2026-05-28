@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
@@ -8,7 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useAuth } from "@/lib/auth-context";
 import { formatCurrency, formatMonthYear, getCurrentMonthYear } from "@/lib/utils";
-import { apiFetch } from "@/lib/auth-context";
+import { useDashboardSummary } from "@/lib/api";
 import { ArrowRight } from "lucide-react";
 import {
   PieChart,
@@ -18,60 +17,12 @@ import {
   Tooltip,
 } from "recharts";
 
-interface DashboardData {
-  balance: number;
-  totalIncome: number;
-  totalExpense: number;
-  monthlyChangePercent: number;
-  budgetAlerts: Array<{
-    categoryId: string;
-    categoryName: string;
-    percentage: number;
-  }>;
-  recentTransactions: Array<{
-    id: string;
-    type: string;
-    amount: number;
-    description: string;
-    transactionDate: string;
-    category: { name: string; icon: string };
-    createdBy: { name: string };
-  }>;
-  expenseChart: Array<{
-    categoryName: string;
-    amount: number;
-    color: string;
-  }>;
-}
-
 function DashboardContent() {
   const { user } = useAuth();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data, isLoading, error } = useDashboardSummary();
   const { month, year } = getCurrentMonthYear();
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
-
-  async function fetchDashboard() {
-    try {
-      const res = await apiFetch("/api/v1/dashboard/summary");
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-      } else {
-        setError(json.error?.message || "Failed to load dashboard");
-      }
-    } catch {
-      setError("Network error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) return <DashboardSkeleton />;
+  if (isLoading) return <DashboardSkeleton />;
 
   if (error) {
     return (
@@ -79,8 +30,7 @@ function DashboardContent() {
         <EmptyState
           icon="⚠️"
           title="Failed to load dashboard"
-          description={error}
-          action={{ label: "Retry", onClick: fetchDashboard }}
+          description={error.message}
         />
       </div>
     );

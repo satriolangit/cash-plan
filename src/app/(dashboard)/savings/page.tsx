@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,21 +12,14 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import { apiFetch } from "@/lib/auth-context";
+import { useSavingsTargets, queryKeys } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
-interface SavingsItem {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: string | null;
-  icon: string;
-  color: string;
-  createdAt: string;
-}
+import type { SavingsTarget } from "@/types";
 
 export default function SavingsPage() {
-  const [items, setItems] = useState<SavingsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: items = [], isLoading } = useSavingsTargets();
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -47,18 +40,6 @@ export default function SavingsPage() {
   });
 
   const icons = ["🎯", "🏠", "🚗", "✈️", "📱", "💻", "🎓", "💍", "👶", "🏥", "🎁", "💰"];
-
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  async function fetchItems() {
-    setLoading(true);
-    const res = await apiFetch("/api/v1/savings-targets");
-    const data = await res.json();
-    if (data.success) setItems(data.data);
-    setLoading(false);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,7 +72,7 @@ export default function SavingsPage() {
         setEditingId(null);
         resetForm();
         toast("success", editingId ? "Target updated" : "Target created");
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.savingsTargets });
       } else {
         setError(data.error?.message || "Failed to save");
       }
@@ -102,7 +83,7 @@ export default function SavingsPage() {
     }
   }
 
-  function handleEdit(item: SavingsItem) {
+  function handleEdit(item: SavingsTarget) {
     setEditingId(item.id);
     setForm({
       name: item.name,
@@ -124,7 +105,7 @@ export default function SavingsPage() {
       const data = await res.json();
       if (data.success) {
         toast("success", "Target deleted");
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.savingsTargets });
       } else {
         toast("error", data.error?.message || "Failed to delete");
       }
@@ -149,7 +130,7 @@ export default function SavingsPage() {
         toast("success", `Deposited ${formatCurrency(depositAmount)}`);
         setDepositTarget(null);
         setDepositAmount(0);
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.savingsTargets });
       } else {
         toast("error", data.error?.message || "Failed to deposit");
       }
@@ -172,7 +153,7 @@ export default function SavingsPage() {
         toast("success", `Withdrew ${formatCurrency(withdrawAmount)}`);
         setWithdrawTarget(null);
         setWithdrawAmount(0);
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.savingsTargets });
       } else {
         toast("error", data.error?.message || "Failed to withdraw");
       }
@@ -318,7 +299,7 @@ export default function SavingsPage() {
         </Card>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>

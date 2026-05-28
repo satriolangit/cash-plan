@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,30 +9,13 @@ import { Users, Settings, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/auth-context";
-
-interface Household {
-  id: string;
-  name: string;
-  memberCount: number;
-}
+import { useHousehold } from "@/lib/api";
 
 export default function HouseholdPage() {
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: household, isLoading } = useHousehold();
   const [inviteUrl, setInviteUrl] = useState("");
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    fetchHousehold();
-  }, []);
-
-  async function fetchHousehold() {
-    const res = await apiFetch("/api/v1/household");
-    const data = await res.json();
-    if (data.success) setHousehold(data.data);
-    setLoading(false);
-  }
 
   async function generateInvite() {
     setGenerating(true);
@@ -49,7 +32,7 @@ export default function HouseholdPage() {
     toast("success", "Link copied!");
   }
 
-  if (loading) {
+  if (isLoading) {
     return <div className="p-4 text-center text-muted">Loading...</div>;
   }
 

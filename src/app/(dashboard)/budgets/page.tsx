@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,28 +12,9 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils";
 import { apiFetch } from "@/lib/auth-context";
-
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  type: string;
-}
-
-interface BudgetItem {
-  id: string;
-  amount: number;
-  spent: number;
-  percentage: number;
-  status: "safe" | "warning" | "over";
-  category: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-  };
-}
+import { useCategories, useBudgets, queryKeys } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import type { BudgetWithRelations } from "@/types";
 
 const statusColors = {
   safe: "bg-success",
@@ -48,42 +29,23 @@ const statusText = {
 };
 
 export default function BudgetsPage() {
-  const [budgets, setBudgets] = useState<BudgetItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: categories = [] } = useCategories("expense");
+  const queryClient = useQueryClient();
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const { data: budgets = [], isLoading } = useBudgets(month, year);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const { toast } = useToast();
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
 
   const [form, setForm] = useState({
     categoryId: "",
     amount: 0,
   });
-
-  useEffect(() => {
-    fetchBudgets();
-    fetchCategories();
-  }, [month, year]);
-
-  async function fetchBudgets() {
-    setLoading(true);
-    const res = await apiFetch(`/api/v1/budgets?month=${month}&year=${year}`);
-    const data = await res.json();
-    if (data.success) setBudgets(data.data);
-    setLoading(false);
-  }
-
-  async function fetchCategories() {
-    const res = await apiFetch("/api/v1/categories?type=expense");
-    const data = await res.json();
-    if (data.success) setCategories(data.data);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +75,7 @@ export default function BudgetsPage() {
         setEditingId(null);
         setForm({ categoryId: "", amount: 0 });
         toast("success", editingId ? "Budget updated" : "Budget created");
-        fetchBudgets();
+        queryClient.invalidateQueries({ queryKey: queryKeys.budgets(month, year) });
       } else {
         setError(data.error?.message || "Failed to save budget");
       }
@@ -124,7 +86,7 @@ export default function BudgetsPage() {
     }
   }
 
-  function handleEdit(budget: BudgetItem) {
+  function handleEdit(budget: BudgetWithRelations) {
     setEditingId(budget.id);
     setForm({
       categoryId: budget.category.id,
@@ -143,7 +105,7 @@ export default function BudgetsPage() {
       const data = await res.json();
       if (data.success) {
         toast("success", "Budget deleted");
-        fetchBudgets();
+        queryClient.invalidateQueries({ queryKey: queryKeys.budgets(month, year) });
       } else {
         toast("error", data.error?.message || "Failed to delete budget");
       }
@@ -253,7 +215,7 @@ export default function BudgetsPage() {
         </Card>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
