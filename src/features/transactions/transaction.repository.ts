@@ -136,36 +136,44 @@ export class TransactionRepository {
   async getTotalByType(
     householdId: string,
     type: "income" | "expense",
-    month: number,
-    year: number
+    month?: number,
+    year?: number
   ) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const where: Record<string, unknown> = {
+      householdId,
+      type,
+      deletedAt: null,
+    };
+
+    if (month && year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      where.transactionDate = { gte: start, lte: end };
+    }
 
     const result = await prisma.transaction.aggregate({
-      where: {
-        householdId,
-        type,
-        deletedAt: null,
-        transactionDate: { gte: start, lte: end },
-      },
+      where,
       _sum: { amount: true },
     });
 
     return Number(result._sum.amount || 0);
   }
 
-  async getCategoryBreakdown(householdId: string, month: number, year: number) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+  async getCategoryBreakdown(householdId: string, month?: number, year?: number) {
+    const where: Record<string, unknown> = {
+      householdId,
+      type: "expense",
+      deletedAt: null,
+    };
+
+    if (month && year) {
+      const start = new Date(year, month - 1, 1);
+      const end = new Date(year, month, 0, 23, 59, 59, 999);
+      where.transactionDate = { gte: start, lte: end };
+    }
 
     const transactions = await prisma.transaction.findMany({
-      where: {
-        householdId,
-        type: "expense",
-        deletedAt: null,
-        transactionDate: { gte: start, lte: end },
-      },
+      where,
       include: {
         category: { select: { id: true, name: true, color: true } },
       },

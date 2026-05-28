@@ -32,7 +32,19 @@ export const queryKeys = {
   household: ["household"] as const,
   householdMembers: ["household", "members"] as const,
   dashboardSummary: ["dashboard", "summary"] as const,
-  transactions: (params: TransactionQueryParams) => ["transactions", params] as const,
+  dashboardSummaryWithFilter: (month?: number, year?: number) => {
+    const key: (string | number)[] = ["dashboard", "summary"];
+    if (month) key.push(month);
+    if (year) key.push(year);
+    return key;
+  },
+  transactions: (params: TransactionQueryParams) => {
+    const key: Record<string, string | number> = { page: params.page };
+    if (params.month) key.month = params.month;
+    if (params.year) key.year = params.year;
+    if (params.type) key.type = params.type;
+    return ["transactions", key] as const;
+  },
   recurringTransactions: ["recurring-transactions"] as const,
   budgets: (month: number, year: number) => ["budgets", { month, year }] as const,
   categoryBreakdown: (month: number, year: number) => ["reports", "category-breakdown", { month, year }] as const,
@@ -43,8 +55,8 @@ export const queryKeys = {
 
 export interface TransactionQueryParams {
   page: number;
-  month: number;
-  year: number;
+  month?: number;
+  year?: number;
   type?: string;
 }
 
@@ -74,10 +86,12 @@ export function useHouseholdMembers() {
   });
 }
 
-export function useDashboardSummary() {
+export function useDashboardSummary(month?: number, year?: number) {
+  const qs = buildSearchParams({ month, year });
+  const url = qs ? `/api/v1/dashboard/summary?${qs}` : "/api/v1/dashboard/summary";
   return useQuery({
-    queryKey: queryKeys.dashboardSummary,
-    queryFn: () => fetchJSON<DashboardSummary>("/api/v1/dashboard/summary"),
+    queryKey: queryKeys.dashboardSummaryWithFilter(month, year),
+    queryFn: () => fetchJSON<DashboardSummary>(url),
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -103,7 +117,7 @@ export function useTransactions(params: TransactionQueryParams) {
   return useQuery({
     queryKey: queryKeys.transactions(params),
     queryFn: () => fetchPaginated<TransactionDTO>(`/api/v1/transactions?${qs}`),
-    staleTime: 30 * 1000,
+    staleTime: 0,
   });
 }
 

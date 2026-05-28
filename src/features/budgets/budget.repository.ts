@@ -2,14 +2,19 @@ import { prisma } from "@/lib/prisma";
 import type { CreateBudgetInput, UpdateBudgetInput } from "@/types";
 
 export class BudgetRepository {
-  async findAll(householdId: string, month: number, year: number) {
+  async findAll(householdId: string, month?: number, year?: number) {
+    const where: Record<string, unknown> = {
+      householdId,
+      deletedAt: null,
+    };
+
+    if (month && year) {
+      where.month = month;
+      where.year = year;
+    }
+
     const budgets = await prisma.budget.findMany({
-      where: {
-        householdId,
-        month,
-        year,
-        deletedAt: null,
-      },
+      where,
       include: {
         category: { select: { id: true, name: true, icon: true, color: true } },
       },
@@ -19,17 +24,21 @@ export class BudgetRepository {
     // Calculate spent for each budget
     const budgetsWithSpent = await Promise.all(
       budgets.map(async (budget) => {
-        const start = new Date(year, month - 1, 1);
-        const end = new Date(year, month, 0, 23, 59, 59, 999);
+        const spentWhere: Record<string, unknown> = {
+          householdId,
+          categoryId: budget.categoryId,
+          type: "expense",
+          deletedAt: null,
+        };
+
+        if (month && year) {
+          const start = new Date(year, month - 1, 1);
+          const end = new Date(year, month, 0, 23, 59, 59, 999);
+          spentWhere.transactionDate = { gte: start, lte: end };
+        }
 
         const result = await prisma.transaction.aggregate({
-          where: {
-            householdId,
-            categoryId: budget.categoryId,
-            type: "expense",
-            deletedAt: null,
-            transactionDate: { gte: start, lte: end },
-          },
+          where: spentWhere,
           _sum: { amount: true },
         });
 

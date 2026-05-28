@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/popover";
 
 export default function TransactionsPage() {
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [month, setMonth] = useState<number | "all">(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -26,8 +26,8 @@ export default function TransactionsPage() {
 
   const { data: paginated, isLoading } = useTransactions({
     page,
-    month,
-    year,
+    month: month !== "all" ? month : undefined,
+    year: month !== "all" ? year : undefined,
     type: typeFilter !== "all" ? typeFilter : undefined,
   });
 
@@ -104,10 +104,11 @@ export default function TransactionsPage() {
               <Select
                 value={String(month)}
                 onValueChange={(v) => {
-                  setMonth(Number(v));
+                  setMonth(v === "all" ? "all" : Number(v));
                   setPage(1);
                 }}
               >
+                <SelectItem value="all">All Time</SelectItem>
                 {months.map((m, i) => (
                   <SelectItem key={i} value={String(i + 1)}>
                     {m}
@@ -115,6 +116,7 @@ export default function TransactionsPage() {
                 ))}
               </Select>
             </div>
+            {month !== "all" && (
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
                 Year
@@ -133,6 +135,7 @@ export default function TransactionsPage() {
                 ))}
               </Select>
             </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">
                 Type

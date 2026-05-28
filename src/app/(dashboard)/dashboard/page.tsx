@@ -1,14 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectItem } from "@/components/ui/select";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { useAuth } from "@/lib/auth-context";
 import { formatCurrency, formatMonthYear, getCurrentMonthYear } from "@/lib/utils";
 import { useDashboardSummary } from "@/lib/api";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, SlidersHorizontal } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import {
   PieChart,
   Pie,
@@ -19,8 +23,13 @@ import {
 
 function DashboardContent() {
   const { user } = useAuth();
-  const { data, isLoading, error } = useDashboardSummary();
-  const { month, year } = getCurrentMonthYear();
+  const [filterMonth, setFilterMonth] = useState<number | "all">(new Date().getMonth() + 1);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
+  const month = filterMonth !== "all" ? filterMonth : undefined;
+  const year = filterMonth !== "all" ? filterYear : undefined;
+
+  const { data, isLoading, error } = useDashboardSummary(month, year);
 
   if (isLoading) return <DashboardSkeleton />;
 
@@ -40,12 +49,68 @@ function DashboardContent() {
 
   const firstName = user?.name?.split(" ")[0] || "there";
 
+  const headingMonth =
+    filterMonth === "all"
+      ? "All Time"
+      : formatMonthYear(filterMonth, filterYear);
+
+  const months = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  ];
+
   return (
     <div className="p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Hi, {firstName} 👋</h1>
-        <p className="text-sm text-muted">{formatMonthYear(month, year)}</p>
+      {/* Header + Filter */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Hi, {firstName} 👋</h1>
+          <p className="text-sm text-muted">{headingMonth}</p>
+        </div>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5">
+              <SlidersHorizontal className="w-4 h-4" />
+              <span className="hidden sm:inline">Filter</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="space-y-3 w-56">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Month
+              </label>
+              <Select
+                value={String(filterMonth)}
+                onValueChange={(v) => setFilterMonth(v === "all" ? "all" : Number(v))}
+              >
+                <SelectItem value="all">All Time</SelectItem>
+                {months.map((m, i) => (
+                  <SelectItem key={i} value={String(i + 1)}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </Select>
+            </div>
+            {filterMonth !== "all" && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Year
+                </label>
+                <Select
+                  value={String(filterYear)}
+                  onValueChange={(v) => setFilterYear(Number(v))}
+                >
+                  {[2026, 2025].map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Balance Card */}
@@ -53,10 +118,12 @@ function DashboardContent() {
         <CardContent className="text-white">
           <p className="text-sm opacity-80">Net Balance</p>
           <p className="text-3xl font-bold mt-1">{formatCurrency(data.balance)}</p>
-          <p className="text-sm mt-2 opacity-80">
-            {data.monthlyChangePercent >= 0 ? "↑" : "↓"}{" "}
-            {Math.abs(data.monthlyChangePercent)}% bulan ini
-          </p>
+          {filterMonth !== "all" && (
+            <p className="text-sm mt-2 opacity-80">
+              {data.monthlyChangePercent >= 0 ? "↑" : "↓"}{" "}
+              {Math.abs(data.monthlyChangePercent)}% dari bulan lalu
+            </p>
+          )}
         </CardContent>
       </Card>
 
