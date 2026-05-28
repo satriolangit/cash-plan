@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectItem } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { useCategoryBreakdown, useMonthlyTrend } from "@/lib/api";
 import { apiFetch } from "@/lib/auth-context";
 import {
   PieChart,
@@ -38,9 +39,6 @@ interface MonthlyTrend {
 }
 
 export default function ReportsPage() {
-  const [breakdown, setBreakdown] = useState<CategoryBreakdown[]>([]);
-  const [trend, setTrend] = useState<MonthlyTrend[]>([]);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"overview" | "categories" | "monthly">("overview");
   const { toast } = useToast();
 
@@ -48,24 +46,9 @@ export default function ReportsPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  useEffect(() => {
-    fetchData();
-  }, [month, year]);
-
-  async function fetchData() {
-    setLoading(true);
-    const [breakdownRes, trendRes] = await Promise.all([
-      apiFetch(`/api/v1/reports/category-breakdown?month=${month}&year=${year}`),
-      apiFetch(`/api/v1/reports/monthly-trend?months=6`),
-    ]);
-
-    const breakdownData = await breakdownRes.json();
-    const trendData = await trendRes.json();
-
-    if (breakdownData.success) setBreakdown(breakdownData.data);
-    if (trendData.success) setTrend(trendData.data);
-    setLoading(false);
-  }
+  const { data: breakdown = [], isLoading: breakdownLoading } = useCategoryBreakdown(month, year);
+  const { data: trend = [], isLoading: trendLoading } = useMonthlyTrend();
+  const loading = breakdownLoading || trendLoading;
 
   async function handleExport() {
     try {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,39 +14,11 @@ import { useToast } from "@/components/ui/toast";
 import { Select, SelectItem } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { apiFetch } from "@/lib/auth-context";
+import { useCategories, useRecurringTransactions, queryKeys } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  type: string;
-}
-
-interface RecurringItem {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  description: string | null;
-  frequency: string;
-  dayOfMonth: number | null;
-  dayOfWeek: number | null;
-  startDate: string;
-  endDate: string | null;
-  isActive: boolean;
-  lastRun: string | null;
-  category: {
-    id: string;
-    name: string;
-    icon: string;
-    color: string;
-  };
-  user: {
-    id: string;
-    name: string;
-  };
-}
+import type { Category, RecurringTransactionWithRelations as RecurringItem } from "@/types";
 
 const frequencyLabels: Record<string, string> = {
   daily: "Daily",
@@ -58,9 +30,9 @@ const frequencyLabels: Record<string, string> = {
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default function RecurringTransactionsPage() {
-  const [items, setItems] = useState<RecurringItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: categories = [] } = useCategories();
+  const { data: items = [], isLoading } = useRecurringTransactions();
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -80,25 +52,6 @@ export default function RecurringTransactionsPage() {
     startDate: new Date().toISOString().split("T")[0],
     endDate: "",
   });
-
-  useEffect(() => {
-    fetchItems();
-    fetchCategories();
-  }, []);
-
-  async function fetchItems() {
-    setLoading(true);
-    const res = await apiFetch("/api/v1/recurring-transactions");
-    const data = await res.json();
-    if (data.success) setItems(data.data);
-    setLoading(false);
-  }
-
-  async function fetchCategories() {
-    const res = await apiFetch("/api/v1/categories");
-    const data = await res.json();
-    if (data.success) setCategories(data.data);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -139,7 +92,7 @@ export default function RecurringTransactionsPage() {
         setEditingId(null);
         resetForm();
         toast("success", editingId ? "Recurring transaction updated" : "Recurring transaction created");
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.recurringTransactions });
       } else {
         setError(data.error?.message || "Failed to save");
       }
@@ -176,7 +129,7 @@ export default function RecurringTransactionsPage() {
       const data = await res.json();
       if (data.success) {
         toast("success", "Recurring transaction deleted");
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.recurringTransactions });
       } else {
         toast("error", data.error?.message || "Failed to delete");
       }
@@ -197,7 +150,7 @@ export default function RecurringTransactionsPage() {
       const data = await res.json();
       if (data.success) {
         toast("success", isActive ? "Paused" : "Resumed");
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.recurringTransactions });
       }
     } catch {
       toast("error", "Failed to update status");
@@ -213,7 +166,7 @@ export default function RecurringTransactionsPage() {
       const data = await res.json();
       if (data.success) {
         toast("success", data.message);
-        fetchItems();
+        queryClient.invalidateQueries({ queryKey: queryKeys.recurringTransactions });
       } else {
         toast("error", data.error?.message || "Failed to process");
       }
@@ -429,7 +382,7 @@ export default function RecurringTransactionsPage() {
         </Card>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>

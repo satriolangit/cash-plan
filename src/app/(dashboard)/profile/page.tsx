@@ -1,46 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-  role: string;
-  household: {
-    name: string;
-  };
-}
+import { useAuth } from "@/lib/auth-context";
+import { useHousehold } from "@/lib/api";
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { data: household, isLoading } = useHousehold();
 
-  useEffect(() => {
-    // Profile is available from session, but we'll fetch household info
-    fetch("/api/v1/household")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setProfile({
-            id: "",
-            name: "User",
-            email: "",
-            image: null,
-            role: "owner",
-            household: { name: data.data.name },
-          });
-        }
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return <div className="p-4 text-center text-muted">Loading...</div>;
   }
 
@@ -49,29 +20,31 @@ export default function ProfilePage() {
       <h1 className="text-2xl font-bold">Profile</h1>
 
       <Card>
-        <CardContent className="text-center py-6">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-            <span className="text-3xl font-bold text-primary">U</span>
+        <CardContent className="py-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
+              {user?.name?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-semibold">{user?.name || "User"}</p>
+              <p className="text-sm text-muted">{user?.email || ""}</p>
+            </div>
+            {household && (
+              <p className="text-sm text-muted">
+                {household.name} • {user?.role || "member"}
+              </p>
+            )}
           </div>
-          <h2 className="text-xl font-bold">{profile?.name}</h2>
-          <p className="text-sm text-muted">{profile?.email}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="py-3">
-          <p className="text-xs text-muted">Household</p>
-          <p className="font-medium">{profile?.household.name}</p>
         </CardContent>
       </Card>
 
       <Button
         variant="outline"
-        className="w-full"
+        className="w-full text-danger"
         onClick={() => signOut({ callbackUrl: "/landing" })}
       >
-        <LogOut className="w-4 h-4 mr-2" />
-        Logout
+        <LogOut className="w-4 h-4" />
+        Sign Out
       </Button>
     </div>
   );

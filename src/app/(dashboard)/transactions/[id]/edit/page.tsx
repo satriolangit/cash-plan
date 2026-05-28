@@ -11,14 +11,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/auth-context";
-
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  type: string;
-}
+import { useCategories, useTransaction, queryKeys } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Category } from "@/types";
 
 interface ExistingAttachment {
   id: string;
@@ -43,15 +38,7 @@ export default function EditTransactionPage({
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState("");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
-  const [newAttachments, setNewAttachments] = useState<NewAttachment[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({
     type: "expense" as "income" | "expense",
     amount: 0,
@@ -59,41 +46,26 @@ export default function EditTransactionPage({
     description: "",
     transactionDate: "",
   });
+  const { data: categories = [] } = useCategories(form.type);
+  const { data: tx, isLoading: fetching } = useTransaction(id);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
+  const [newAttachments, setNewAttachments] = useState<NewAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchTransaction();
-  }, [id]);
-
-  useEffect(() => {
-    fetchCategories();
-  }, [form.type]);
-
-  async function fetchTransaction() {
-    const res = await apiFetch(`/api/v1/transactions/${id}`);
-    const data = await res.json();
-    if (data.success) {
-      const tx = data.data;
+    if (tx) {
       setForm({
         type: tx.type,
-        amount: tx.amount,
-        categoryId: tx.categoryId,
+        amount: Number(tx.amount),
+        categoryId: tx.category.id,
         description: tx.description || "",
         transactionDate: tx.transactionDate.split("T")[0],
       });
-      if (tx.attachments) {
-        setExistingAttachments(tx.attachments);
-      }
-    } else {
-      setError("Transaction not found");
     }
-    setFetching(false);
-  }
-
-  async function fetchCategories() {
-    const res = await apiFetch(`/api/v1/categories?type=${form.type}`);
-    const data = await res.json();
-    if (data.success) setCategories(data.data);
-  }
+  }, [tx]);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -184,6 +156,7 @@ export default function EditTransactionPage({
 
       const data = await res.json();
       if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast("success", "Transaction updated");
         router.push("/transactions");
       } else {
@@ -204,6 +177,7 @@ export default function EditTransactionPage({
       const res = await apiFetch(`/api/v1/transactions/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast("success", "Transaction deleted");
         router.push("/transactions");
       } else {

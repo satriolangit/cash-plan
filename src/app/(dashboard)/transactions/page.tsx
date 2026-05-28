@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,43 +9,30 @@ import { Select, SelectItem } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TransactionCardSkeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatDateShort } from "@/lib/utils";
-import { apiFetch } from "@/lib/auth-context";
+import { useTransactions } from "@/lib/api";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import type { TransactionDTO } from "@/types";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<TransactionDTO[]>([]);
-  const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [month, year, typeFilter, page]);
+  const { data: paginated, isLoading } = useTransactions({
+    page,
+    month,
+    year,
+    type: typeFilter !== "all" ? typeFilter : undefined,
+  });
 
-  async function fetchTransactions() {
-    setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: "20",
-      month: String(month),
-      year: String(year),
-    });
-    if (typeFilter !== "all") params.set("type", typeFilter);
-
-    const res = await apiFetch(`/api/v1/transactions?${params}`);
-    const data = await res.json();
-    if (data.success) {
-      setTransactions(data.data);
-      setTotalPages(data.meta.totalPages);
-    }
-    setLoading(false);
-  }
+  const transactions = paginated?.data ?? [];
+  const totalPages = paginated?.meta?.totalPages ?? 1;
 
   const filteredTransactions = useMemo(() => {
     if (!search.trim()) return transactions;
@@ -53,15 +40,25 @@ export default function TransactionsPage() {
     return transactions.filter(
       (tx) =>
         tx.description?.toLowerCase().includes(q) ||
-        tx.category.name.toLowerCase().includes(q)
+        tx.category.name.toLowerCase().includes(q),
     );
   }, [transactions, search]);
 
-  const activeFilterCount = (typeFilter !== "all" ? 1 : 0);
+  const activeFilterCount = typeFilter !== "all" ? 1 : 0;
 
   const months = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
   ];
 
   return (
@@ -88,11 +85,7 @@ export default function TransactionsPage() {
         <Popover>
           <PopoverTrigger asChild>
             <div className="relative">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 gap-1.5"
-              >
+              <Button variant="outline" size="sm" className="h-9 gap-1.5">
                 <SlidersHorizontal className="w-4 h-4" />
                 <span className="hidden sm:inline">Filter</span>
               </Button>
@@ -104,46 +97,58 @@ export default function TransactionsPage() {
             </div>
           </PopoverTrigger>
           <PopoverContent align="end" className="space-y-3 w-56">
-            {/* Month */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Month</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Month
+              </label>
               <Select
                 value={String(month)}
-                onValueChange={(v) => { setMonth(Number(v)); setPage(1); }}
+                onValueChange={(v) => {
+                  setMonth(Number(v));
+                  setPage(1);
+                }}
               >
                 {months.map((m, i) => (
-                  <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                  <SelectItem key={i} value={String(i + 1)}>
+                    {m}
+                  </SelectItem>
                 ))}
               </Select>
             </div>
-
-            {/* Year */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Year</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Year
+              </label>
               <Select
                 value={String(year)}
-                onValueChange={(v) => { setYear(Number(v)); setPage(1); }}
+                onValueChange={(v) => {
+                  setYear(Number(v));
+                  setPage(1);
+                }}
               >
                 {[2026, 2025].map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
                 ))}
               </Select>
             </div>
-
-            {/* Type */}
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Type</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Type
+              </label>
               <Select
                 value={typeFilter}
-                onValueChange={(v) => { setTypeFilter(v); setPage(1); }}
+                onValueChange={(v) => {
+                  setTypeFilter(v);
+                  setPage(1);
+                }}
               >
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="income">Income</SelectItem>
                 <SelectItem value="expense">Expense</SelectItem>
               </Select>
             </div>
-
-            {/* Reset */}
             {activeFilterCount > 0 && (
               <Button
                 variant="ghost"
@@ -159,8 +164,8 @@ export default function TransactionsPage() {
       </div>
 
       {/* Transaction List */}
-      {loading ? (
-        <div className="space-y-2">
+      {isLoading ? (
+        <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <TransactionCardSkeleton key={i} />
           ))}
@@ -169,13 +174,25 @@ export default function TransactionsPage() {
         <EmptyState
           icon="📝"
           title={search ? "No matching transactions" : "No transactions yet"}
-          description={search ? "Try a different search term" : "Start tracking your family finance"}
-          action={search ? undefined : { label: "Add Transaction", href: "/transactions/new" }}
+          description={
+            search
+              ? "Try a different search term"
+              : "Start tracking your family finance"
+          }
+          action={
+            search
+              ? undefined
+              : { label: "Add Transaction", href: "/transactions/new" }
+          }
         />
       ) : (
         <div className="space-y-2">
           {filteredTransactions.map((tx) => (
-            <Link key={tx.id} href={`/transactions/${tx.id}/edit`}>
+            <Link
+              key={tx.id}
+              href={`/transactions/${tx.id}/edit`}
+              className="block"
+            >
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
@@ -183,7 +200,8 @@ export default function TransactionsPage() {
                     <div>
                       <p className="font-medium text-sm">{tx.category.name}</p>
                       <p className="text-xs text-muted">
-                        {tx.description || "No description"} • {formatDateShort(tx.transactionDate)}
+                        {tx.description || "No description"} •{" "}
+                        {formatDateShort(tx.transactionDate)}
                       </p>
                     </div>
                   </div>
@@ -192,7 +210,8 @@ export default function TransactionsPage() {
                       tx.type === "income" ? "text-success" : "text-danger"
                     }`}
                   >
-                    {tx.type === "income" ? "+" : "-"}{formatCurrency(Number(tx.amount))}
+                    {tx.type === "income" ? "+" : "-"}
+                    {formatCurrency(Number(tx.amount))}
                   </span>
                 </CardContent>
               </Card>
@@ -212,7 +231,9 @@ export default function TransactionsPage() {
           >
             Previous
           </Button>
-          <span className="text-sm text-muted py-2">Page {page} of {totalPages}</span>
+          <span className="text-sm text-muted py-2">
+            Page {page} of {totalPages}
+          </span>
           <Button
             variant="outline"
             size="sm"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,14 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/auth-context";
-
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  type: string;
-}
+import { useCategories, queryKeys } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Category } from "@/types";
 
 interface AttachmentPreview {
   file: File;
@@ -30,12 +25,7 @@ interface AttachmentPreview {
 export default function NewTransactionPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({
     type: "expense" as "income" | "expense",
     amount: 0,
@@ -43,16 +33,11 @@ export default function NewTransactionPage() {
     description: "",
     transactionDate: new Date().toISOString().split("T")[0],
   });
-
-  useEffect(() => {
-    fetchCategories();
-  }, [form.type]);
-
-  async function fetchCategories() {
-    const res = await apiFetch(`/api/v1/categories?type=${form.type}`);
-    const data = await res.json();
-    if (data.success) setCategories(data.data);
-  }
+  const { data: categories = [] } = useCategories(form.type);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
@@ -147,6 +132,7 @@ export default function NewTransactionPage() {
 
       const data = await res.json();
       if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast("success", "Transaction created");
         router.push("/transactions");
       } else {

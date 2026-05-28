@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectItem } from "@/components/ui/select";
 import { apiFetch } from "@/lib/auth-context";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useCategories } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/api";
 
 interface Category {
   id: string;
@@ -18,8 +22,8 @@ interface Category {
 }
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: categories = [], isLoading } = useCategories();
+  const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -30,17 +34,6 @@ export default function CategoriesPage() {
     color: "#64748B",
     type: "expense" as "income" | "expense" | "both",
   });
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  async function fetchCategories() {
-    const res = await apiFetch("/api/v1/categories");
-    const data = await res.json();
-    if (data.success) setCategories(data.data);
-    setLoading(false);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +53,7 @@ export default function CategoriesPage() {
       setShowForm(false);
       setEditingId(null);
       setForm({ name: "", icon: "📦", color: "#64748B", type: "expense" });
-      fetchCategories();
+      queryClient.invalidateQueries({ queryKey: queryKeys.categories });
     }
   }
 
@@ -73,7 +66,7 @@ export default function CategoriesPage() {
   async function handleDelete(id: string) {
     await apiFetch(`/api/v1/categories/${id}`, { method: "DELETE" });
     setDeleteTarget(null);
-    fetchCategories();
+    queryClient.invalidateQueries({ queryKey: queryKeys.categories });
   }
 
   const incomeCategories = categories.filter((c) => c.type === "income");
@@ -97,10 +90,9 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
-      {/* Add/Edit Form */}
       {showForm && (
         <Card>
-          <CardContent>
+          <CardContent className="pt-4">
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <Label>Name</Label>
@@ -119,7 +111,7 @@ export default function CategoriesPage() {
                       type="button"
                       onClick={() => setForm({ ...form, icon: emoji })}
                       className={`w-8 h-8 rounded-lg text-lg flex items-center justify-center ${
-                        form.icon === emoji ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"
+                        form.icon === emoji ? "bg-primary/20 ring-2 ring-primary" : "bg-border/30"
                       }`}
                     >
                       {emoji}
@@ -138,15 +130,14 @@ export default function CategoriesPage() {
               </div>
               <div>
                 <Label>Type</Label>
-                <select
+                <Select
                   value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value as "income" | "expense" | "both" })}
-                  className="flex h-10 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm"
+                  onValueChange={(v) => setForm({ ...form, type: v as "income" | "expense" | "both" })}
                 >
-                  <option value="income">Income</option>
-                  <option value="expense">Expense</option>
-                  <option value="both">Both</option>
-                </select>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                  <SelectItem value="both">Both</SelectItem>
+                </Select>
               </div>
               <Button type="submit" className="w-full">
                 {editingId ? "Update" : "Create"}
@@ -156,11 +147,10 @@ export default function CategoriesPage() {
         </Card>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="text-center py-8 text-muted">Loading...</div>
       ) : (
         <>
-          {/* Income Categories */}
           {incomeCategories.length > 0 && (
             <div>
               <h2 className="font-semibold text-sm text-muted mb-2">Income</h2>
@@ -189,7 +179,6 @@ export default function CategoriesPage() {
             </div>
           )}
 
-          {/* Expense Categories */}
           {expenseCategories.length > 0 && (
             <div>
               <h2 className="font-semibold text-sm text-muted mb-2">Expense</h2>
